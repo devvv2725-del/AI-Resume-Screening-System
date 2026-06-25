@@ -2,7 +2,7 @@ import "./App.css";
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://ai-resume-screening-system-g2bo.onrender.com";
 
 function App() {
   const [candidates, setCandidates]     = useState([]);
