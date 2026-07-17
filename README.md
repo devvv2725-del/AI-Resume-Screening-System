@@ -1,3 +1,9 @@
+![React](https://img.shields.io/badge/React-19-blue?logo=react)
+![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=node.js)
+![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?logo=supabase)
+![OpenRouter](https://img.shields.io/badge/AI-OpenRouter-purple)
+![License](https://img.shields.io/badge/License-Educational-orange)
+
 # 🤖 AI Resume Screening & Recruitment Assistant
 
 An AI-powered recruitment platform that helps recruiters efficiently screen resumes, evaluate candidates, schedule interviews, and manage the hiring process from a single dashboard.
