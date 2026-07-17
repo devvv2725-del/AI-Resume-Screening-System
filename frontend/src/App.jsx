@@ -2,7 +2,7 @@ import "./App.css";
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_BASE = "https://ai-resume-screening-system-g2bo.onrender.com";
+const API_BASE = "http://localhost:5000";
 
 function App() {
   const [candidates, setCandidates]     = useState([]);
@@ -14,6 +14,18 @@ function App() {
   const [sortOption, setSortOption]     = useState("ats_desc");
   const [lightMode, setLightMode]       = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+const [showScheduleModal, setShowScheduleModal] = useState(false);
+const [summaryModal, setSummaryModal] = useState(false);
+const [aiSummary, setAiSummary] = useState("");
+const [loadingSummary, setLoadingSummary] = useState(false);
+
+const [selectedCandidate, setSelectedCandidate] = useState(null);
+
+const [scheduleData, setScheduleData] = useState({
+  interview_date: "",
+  interviewer: "",
+  meeting_link: ""
+});
 
   useEffect(() => { fetchCandidates(); }, []);
 
@@ -48,6 +60,60 @@ function App() {
       fetchCandidates();
     } catch (err) { console.error(err); alert("Delete failed"); }
   };
+
+const scheduleInterview = async () => {
+  try {
+    await axios.patch(
+      `${API_BASE}/candidate/${selectedCandidate.id}/schedule`,
+      scheduleData
+    );
+
+    alert("Interview Scheduled Successfully");
+
+    setShowScheduleModal(false);
+
+    fetchCandidates();
+
+  } catch (err) {
+    console.error(err);
+    alert("Scheduling failed");
+  }
+};
+
+const sendInterviewEmail = async (candidate) => {
+  try {
+    await axios.post(`${API_BASE}/send-email`, {
+      email: candidate.email,
+      name: candidate.candidate_name,
+      interview_date: candidate.interview_date || "To Be Decided",
+      interviewer: candidate.interviewer || "HR Team",
+      meeting_link: candidate.meeting_link || "Will be shared later",
+    });
+
+    alert("Interview email sent successfully!");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to send email.");
+  }
+};
+
+const generateSummary = async (candidate) => {
+  try {
+    setLoadingSummary(true);
+
+    const res = await axios.post(`${API_BASE}/generate-summary`, {
+      candidate,
+    });
+
+    setAiSummary(res.data.summary);
+    setSummaryModal(true);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to generate summary");
+  } finally {
+    setLoadingSummary(false);
+  }
+};
 
   const updateCandidateField = async (id, fields) => {
     setCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...fields } : c)));
@@ -375,7 +441,9 @@ function App() {
                     onChange={(e) => updateCandidateField(c.id, { interview_status: e.target.value })}
                   >
                     <option value="Applied">Applied</option>
-                    <option value="Shortlisted">Shortlisted</option>
+                    <option value="Shortlisted"><span className={`status-badge ${c.status}`}>
+{c.status}
+</span></option>
                     <option value="Interview Scheduled">Interview Scheduled</option>
                     <option value="Selected">Selected</option>
                     <option value="Rejected">Rejected</option>
@@ -393,7 +461,31 @@ function App() {
 
                   {/* Actions */}
                   <div className="card-actions">
+                 <button
+  className="summary-btn"
+  disabled={loadingSummary}
+  onClick={() => generateSummary(c)}
+>
+  {loadingSummary ? "Generating..." : "✨ AI Summary"}
+</button>
                     <button className="view-btn" onClick={() => viewResume(c)}>📄 View Resume</button>
+                    <button
+className="schedule-btn"
+onClick={()=>{
+setSelectedCandidate(c);
+setShowScheduleModal(true);
+}}
+>
+📅 Schedule
+</button>
+
+ <button
+    className="email-btn"
+    onClick={() => sendInterviewEmail(c)}
+  >
+    ✉ Send Email
+  </button>
+
                     <button className="delete-btn" onClick={() => deleteCandidate(c.id)}>Delete</button>
                   </div>
 
@@ -404,10 +496,95 @@ function App() {
         </div>
       )}
 
+{
+showScheduleModal && (
+
+<div className="modal-overlay">
+
+<div className="modal">
+
+<h2>Schedule Interview</h2>
+
+<input
+type="datetime-local"
+onChange={(e)=>
+setScheduleData({
+...scheduleData,
+interview_date:e.target.value
+})
+}
+/>
+
+<input
+placeholder="Interviewer"
+onChange={(e)=>
+setScheduleData({
+...scheduleData,
+interviewer:e.target.value
+})
+}
+/>
+
+<input
+placeholder="Meeting Link"
+onChange={(e)=>
+setScheduleData({
+...scheduleData,
+meeting_link:e.target.value
+})
+}
+/>
+
+<div className="modal-buttons">
+
+<button
+onClick={()=>setShowScheduleModal(false)}
+>
+Cancel
+</button>
+
+<button
+onClick={scheduleInterview}
+>
+Schedule
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+)
+}
+
       {/* Footer */}
       <footer className="footer">
         Built by Dev Gargh &nbsp;·&nbsp; React &nbsp;·&nbsp; Node.js &nbsp;·&nbsp; Supabase &nbsp;·&nbsp; AI Resume Screening System
       </footer>
+
+      {summaryModal && (
+  <div className="modal-overlay">
+    <div className="summary-modal">
+
+      <div className="modal-header">
+        <h2>🤖 AI Candidate Summary</h2>
+
+        <button
+          className="close-btn"
+          onClick={() => setSummaryModal(false)}
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="summary-content">
+        <pre>{aiSummary}</pre>
+      </div>
+
+    </div>
+  </div>
+)}
 
     </div>
   );

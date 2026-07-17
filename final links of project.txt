@@ -1,0 +1,2 @@
+Frontend: https://ai-resume-screening-system-six-opal.vercel.app/
+Backend: https://ai-resume-screening-system-g2bo.onrender.com

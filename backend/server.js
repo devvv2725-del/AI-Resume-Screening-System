@@ -1,3 +1,4 @@
+const nodemailer = require("nodemailer");
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
@@ -7,7 +8,13 @@ const pdfParse = require("pdf-parse");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
-
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 const app = express();
 
 app.use(cors());
@@ -301,6 +308,149 @@ app.delete("/candidate/:id", async (req, res) => {
   res.json({
     success: true
   });
+});
+
+app.patch("/candidate/:id/schedule", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      interview_date,
+      interviewer,
+      meeting_link,
+    } = req.body;
+
+    const { data, error } = await supabase
+      .from("resumes")
+      .update({
+        interview_status: "Interview Scheduled",
+        interview_date,
+        interviewer,
+        meeting_link,
+      })
+      .eq("id", id)
+      .select();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      candidate: data[0],
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+app.post("/send-email", async (req, res) => {
+  try {
+    const {
+      email,
+      name,
+      interview_date,
+      interviewer,
+      meeting_link,
+    } = req.body;
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Interview Invitation",
+      html: `
+        <h2>Congratulations ${name}!</h2>
+
+        <p>
+          We are pleased to invite you for the next stage of our recruitment process.
+        </p>
+
+        <p><strong>Interview Date:</strong> ${interview_date}</p>
+        <p><strong>Interviewer:</strong> ${interviewer}</p>
+        <p><strong>Meeting Link:</strong> <a href="${meeting_link}">${meeting_link}</a></p>
+
+        <br/>
+
+        <p>We look forward to speaking with you.</p>
+
+        <br/>
+
+        <p>Regards,</p>
+        <p><strong>Recruitment Team</strong></p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({
+      success: true,
+      message: "Email sent successfully",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+app.post("/generate-summary", async (req, res) => {
+  try {
+    const { candidate } = req.body;
+
+    const prompt = `
+You are an HR recruiter.
+
+Candidate:
+Name: ${candidate.candidate_name}
+Skills: ${candidate.skills}
+Education: ${candidate.education}
+Experience: ${candidate.experience}
+ATS Score: ${candidate.ats_score}
+
+Generate:
+
+1. Strengths
+2. Weaknesses
+3. Hiring Recommendation
+4. 3 Technical Interview Questions
+
+Keep it under 200 words.
+`;
+
+   const response = await axios.post(
+  "https://openrouter.ai/api/v1/chat/completions",
+  {
+    model: "openai/gpt-4.1-mini",
+    max_tokens: 200,
+    temperature: 0.3,
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+  }
+);
+
+    res.json({
+      summary: response.data.choices[0].message.content,
+    });
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+
+    res.status(500).json({
+      error: "AI summary failed",
+    });
+  }
 });
 
 app.listen(5000, () => {
